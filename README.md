@@ -39,20 +39,9 @@ Real-Time-3D-XR-Visualization-Project-The-Robot-In-The-Kitchen/
 # Exercise 1 — Setting Up the Kitchen Environment
 
 The first exercise creates the base kitchen scene.
-
-### Implemented features:
-Three.js scene initialization
-Perspective camera
-WebGL renderer
-Shadow map support
-Floor using PlaneGeometry
-Two walls using BoxGeometry
-Kitchen counter using BoxGeometry
-Physically based materials using MeshStandardMaterial
-Texture mapping for floor, walls, and counter
-Two objects on the counter:
-a wooden cutting board
-a pizza using a PNG texture
+The scene includes a perspective camera, a WebGL renderer, shadow support, and OrbitControls for viewing the environment.
+I built the room with a textured floor and two walls, then added a kitchen counter using `BoxGeometry`. The floor, walls, and counter use different textures and `MeshStandardMaterial` to make the environment visually clear.
+I also placed two objects on the counter: a wooden cutting board and a pizza with a PNG texture. These objects help prepare the scene for later interaction with the robot.
 
 This exercise establishes the environment where the robot will later be placed.
 
@@ -63,94 +52,46 @@ This exercise establishes the environment where the robot will later be placed.
 # Exercise 2 — Humanoid Robot and Hierarchical Modeling
 
 The second exercise adds a simplified humanoid robot.
+The robot has an oval torso, a round head, two arms, and a wheeled base.
+The main focus of this exercise was hierarchical modeling. I used `THREE.Group` objects as shoulder and elbow joints, so rotating a parent joint correctly moves all child parts of the arm.
+Each arm includes a shoulder, upper arm, elbow, forearm, and hand. The arm parts are positioned so that the pivots are located at the joints, and I added `AxesHelper` objects to visualize the local axes during debugging.
 
-### Implemented features:
+## Example Result
 
-Robot root group using THREE.Group
-Oval torso using a scaled sphere
-Head using SphereGeometry
-Wheeled base for simplified robot locomotion
-Two arms built with hierarchical modeling
-Shoulder and elbow joints implemented as THREE.Group pivot nodes
-Upper arm, forearm, and hand attached as child objects
-Correct parent-child hierarchy so that rotating the shoulder moves the full arm
-Correct elbow hierarchy so that rotating the elbow moves the forearm and hand
-AxesHelper added to shoulder and elbow joints for visual debugging
-Shoulder caps added to visually smooth the connection between torso and arms
+![Exercise 2 Screenshot](./assets/ex2_screenshot.png)
 
 # Exercise 3 — Lighting and Shadows
 
-The third exercise improves scene realism using lights, shadows, and material controls.
+In this exercise, I improved the realism of the scene by adding ambient light, a spotlight above the kitchen counter, and shadow support. The spotlight simulates a ceiling lamp and casts shadows, while the ambient light prevents the scene from becoming too dark.
+The shadow map size and shadow bias are adjusted to reduce artifacts, and I used `THREE.PCFSoftShadowMap` for softer shadows. The robot and objects cast shadows, while the floor and counter receive them.
+All main materials use `MeshStandardMaterial`, so they react correctly to lighting. I also added `lil-gui` controls for the light, robot material, robot color, and object positions.
 
-### Implemented features:
+## Example Result
 
-Ambient light to avoid fully black shadows
-Spotlight above the kitchen counter to simulate a ceiling lamp
-Shadow casting enabled on the main light
-Shadow map size adjustment
-Shadow bias adjustment to reduce artifacts
-Soft shadow rendering using THREE.PCFSoftShadowMap
-Robot and objects configured to cast shadows
-Floor and counter configured to receive shadows
-Materials based on MeshStandardMaterial
-lil-gui controls for:
-light intensity
-light position
-robot material roughness
-robot material metalness
-robot color
-object positions
-
-This exercise helps improve depth perception, which is especially important for VR scenes.
+![Exercise 3 Screenshot](./assets/ex3_screenshot.png)
 
 # Exercise 4 — Animation and Interaction
 
 The fourth exercise animates the robot using forward kinematics.
-
-### Implemented features:
-
-Forward kinematics animation using Math.sin(Date.now())
-Smooth waving or chopping motion of the robot arms
-Shoulder and elbow rotations animated over time
-OrbitControls for inspecting the hierarchy from different camera angles
-GUI controls for:
-enabling/disabling automatic animation
-manually controlling shoulder angle
-manually controlling elbow angle
+The shoulder and elbow joints are animated with `Math.sin(Date.now())`, creating a smooth waving or chopping motion.
+I used `OrbitControls` so the user can inspect the scene and robot hierarchy from different angles. I also added GUI controls to enable or disable the animation and manually adjust the shoulder and elbow angles for debugging.
 
 This exercise demonstrates how parent-child transformations allow the arm to move naturally through joint rotations.
+
+## Example Result
+
+![Exercise 4 Screenshot](./assets/ex4_screenshot.png)
 
 # Exercise 5 — Tele-operation in VR/MR
 
 The final exercise adds WebXR support and controller-based tele-operation.
+The renderer is configured for XR, and the scene includes both `VRButton` and `ARButton`.
+I accessed two VR controllers using `renderer.xr.getController(0)` and `renderer.xr.getController(1)`, then used them to control the robot arms. The project includes a remote-control mode, where controller rotation drives the shoulder and elbow joints, and an inverse kinematics mode, where the controller position becomes the target for the robot hand.
+The inverse kinematics system uses a simple two-link analytical solver based on the Law of Cosines. For mixed reality mode, the kitchen walls are made transparent while the counter remains solid, so the robot appears to work on a real table.
 
-### Implemented features:
+## Example Result
 
-WebXR enabled using:
-renderer.xr.enabled = true;
-VR mode enabled using VRButton
-AR/MR mode enabled using ARButton
-Controller input accessed with:
-const controller1 = renderer.xr.getController(0);
-const controller2 = renderer.xr.getController(1);
-Controllers added to the scene
-Remote-control mapping mode:
-controller rotation drives shoulder and elbow rotations
-Inverse kinematics mode:
-controller position is used as the target for the robot hand
-shoulder and elbow angles are calculated using a 2-link analytical IK solution
-the Law of Cosines is used to calculate joint angles
-Wall transparency for mixed reality mode
-Solid counter/table preserved for the robot workspace
-Minimal GUI for XR debugging:
-switching between IK and remote control mode
-adjusting wall opacity
-
-The IK system treats the robot arm as a two-link chain:
-
-Shoulder → Upper Arm → Elbow → Forearm → Hand
-
-The controller position becomes the target position for the robot hand, and the solver computes the required shoulder and elbow angles.
+![Exercise 5 Screenshot](./assets/ex5_screenshot.png)
 
 # VR / AR / MR Support
 
