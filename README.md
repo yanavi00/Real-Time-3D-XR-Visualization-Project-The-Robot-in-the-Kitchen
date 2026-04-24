@@ -15,7 +15,7 @@ The project is implemented using:
 
 ## Repository Structure
 
-```text
+```Real-Time-3D-XR-Visualization-Project-The-Robot-In-The-Kitchen/
 .
 ├── ex1_settingupthekitchenenvironment.html
 ├── ex2_thehumanoidrobot.html
