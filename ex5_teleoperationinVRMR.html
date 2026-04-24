@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Ex5 - Tele-operation in VR/MR</title>
+    <style>
+      body { margin: 0; overflow: hidden; }
+      #VRButton {
+        bottom: 20px !important;
+        left: 40% !important;
+        transform: translateX(-50%) !important;
+      }
+      #ARButton {
+        bottom: 20px !important;
+        left: 60% !important;
+        transform: translateX(-50%) !important;
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <script type="module">
+      // Import THREE and all functions from kitchen-utils.js
+      import * as THREE from 'three';
+      import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.18/+esm';
+      import { VRButton } from 'three/addons/webxr/VRButton.js';
+      import { ARButton } from 'three/addons/webxr/ARButton.js';
+      import { 
+        initScene, 
+        initLighting, 
+        loadTextures, 
+        createRoom, 
+        createObjects, 
+        createRobot,
+        animate, 
+        getRenderer,
+        getScene, 
+        getCamera
+      } from './js/kitchen-utils.js';
+
+      // Initialize the scene
+      initScene();
+      initLighting();
+      loadTextures();
+      const room = createRoom();
+      const objects = createObjects();
+      const robot = createRobot(); 
+      const scene = getScene();
+      const renderer = getRenderer();
+      const camera = getCamera();
+      const gui = new GUI();
+
+      // Make walls transparent for AR mode (exercise 5 only)
+      room.backwallMat.transparent = true;
+      room.backwallMat.opacity = 0.15;
+      room.leftwallMat.transparent = true;
+      room.leftwallMat.opacity = 0.15;
+
+      // Move robot back for better VR visibility
+      robot.robot.position.set(0.5, 0, -0.8);
+
+      // 1. WEBXR setup: Enable VR mode and add a VR button to the page
+      renderer.xr.enabled = true; // Enable WebXR support in the renderer
+      document.body.appendChild(VRButton.createButton(renderer)); // Add the VR button to the page
+
+      // 2. Access the controller data to allow the user to interact with the robot using VR controllers
+      const controller1 = renderer.xr.getController(0); // Get the first VR controller
+      const controller2 = renderer.xr.getController(1); // Get the second VR controller   
+      scene.add(controller1); // Add the first controller to the scene
+      scene.add(controller2); // Add the second controller to the scene
+
+      // Small debug spheres attached to controllers.
+      // They help you see controller positions in the scene.
+
+      const controllerMarkerGeo = new THREE.SphereGeometry(0.04, 16, 16);
+      
+      const controllerMarker1 = new THREE.Mesh(controllerMarkerGeo, new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+      const controllerMarker2 = new THREE.Mesh(controllerMarkerGeo, new THREE.MeshBasicMaterial({ color: 0x0066ff }));
+      controller1.add(controllerMarker1); // Add a red sphere to the first controller
+      controller2.add(controllerMarker2); // Add a blue sphere to the second controller
+
+      // XR GUI parameters
+      const params = {
+        controlMode: 'ik',
+        showControllerMarkers: true,
+        wallOpacity: 0.15
+      };
+      let controlMode = params.controlMode;
+
+      gui.add(params, 'controlMode', ['ik', 'remote']).name('Control mode').onChange((value) => {
+        controlMode = value;
+      });
+
+      gui.add(params, 'showControllerMarkers').name('Show markers').onChange((value) => {
+        controllerMarker1.visible = value;
+        controllerMarker2.visible = value;
+      });
+
+      gui.add(params, 'wallOpacity', 0, 1).step(0.01).name('Wall opacity').onChange((value) => {
+        room.backwallMat.opacity = value;
+        room.leftwallMat.opacity = value;
+      });
+
+      // 3. Teleoperation mapping: use the controller’s rotation/position to drive the rotation of the robot’s shoulder/elbow relative to its body
+      function updateRobotFromControllersRemote() {
+        // Right arm control with controller1
+        robot.shoulderRight.rotation.z = THREE.MathUtils.clamp(controller1.rotation.x, -1.2, 1.2);
+        robot.elbowRight.rotation.z = THREE.MathUtils.clamp(controller1.rotation.y, -1.4, 1.4);
+        
+        // Left arm control with controller2
+        robot.shoulderLeft.rotation.z = THREE.MathUtils.clamp(-controller2.rotation.x, -1.2, 1.2);
+        robot.elbowLeft.rotation.z = THREE.MathUtils.clamp(-controller2.rotation.y, -1.4, 1.4);
+      }
+
+      // 4. Inverse Kinematics: calculate the necessary joint angles for the shoulder and elbow so that the robot’s hand reaches the VR controller’s position. You can use a simple 2-link IK analytical solution (Law of Cosines).
+      // 4.1. Arm lengths that match the robot model
+      const upperArmLength = 0.9;
+      const forearmLength = 0.8; 
+      // 4.2. IK solver function to solve a 2D arm in the robot's local XY plane using the Law of Cosines
+      function solve2LinkIK(targetX, targetY, L1, L2) {
+        let d = Math.sqrt(targetX * targetX + targetY * targetY); // Distance from shoulder to target
+       
+        const maxReach = L1 + L2 - 0.0001; // Maximum reach of the arm
+        const minReach = Math.abs(L1 - L2) + 0.0001; // Minimum reach of the arm
+        
+        d = THREE.MathUtils.clamp(d, minReach, maxReach); // Clamp distance to reachable range
+        
+        const cosElbow = (L1 * L1 + L2 * L2 - d * d) / (2 * L1 * L2); // Cosine of the elbow angle
+        const elbowAngle = Math.acos(THREE.MathUtils.clamp(cosElbow, -1, 1)); // Elbow angle using inverse cosine
+        const cosShoulder = (d * d + L1 * L1 - L2 * L2) / (2 * L1 * d); // Cosine of the shoulder angle
+        
+        const shoulderOffset = Math.acos(THREE.MathUtils.clamp(cosShoulder, -1, 1)); // Shoulder angle offset from the line to the target
+        const baseAngle = Math.atan2(targetY, targetX); // Base angle to the target
+        const shoulderAngle = baseAngle - shoulderOffset; // Final shoulder angle
+
+        return { shoulderAngle, elbowAngle: Math.PI - elbowAngle }; // Return the calculated joint angles
+      }
+      // 4.3. Convert controller target into shoulder-local coordinates
+      
+      const tempTargetWorld = new THREE.Vector3();
+      const tempShoulderWorld = new THREE.Vector3();
+      
+      // For the right arm:
+      function updateArmIK(controller, shoulder, elbow, side) {
+        // side = 1 for right arm, -1 for left arm (to mirror the target for the left arm)
+        // Get positions in world space
+        controller.getWorldPosition(tempTargetWorld);
+        shoulder.getWorldPosition(tempShoulderWorld);
+        
+        // Convert both to robot local space
+        const targetLocal = tempTargetWorld.clone();
+        robot.robot.worldToLocal(targetLocal);
+        
+        const shoulderLocal = tempShoulderWorld.clone();
+        robot.robot.worldToLocal(shoulderLocal);
+
+        // Target relative to shoulder
+        let localX = targetLocal.x - shoulderLocal.x;
+        let localY = targetLocal.y - shoulderLocal.y;
+        
+        // Mirror left arm into the same IK solving space
+        localX *= side; // Mirror the X coordinate for the left arm
+        
+        // Solve IK in the local XY plane of the robot
+        const solution = solve2LinkIK(localX, localY, upperArmLength, forearmLength);
+
+        // Apply angles back to the real arm
+        shoulder.rotation.z = solution.shoulderAngle * side; // Mirror the shoulder angle for the left arm
+        elbow.rotation.z = solution.elbowAngle * side; // Mirror the elbow angle for the left arm
+      }
+
+      
+      // 4.4 Choose control mode and update loop logic
+      function updateTeleoperation() {
+        if (controlMode === 'ik') {
+          updateArmIK(
+            controller1, robot.shoulderRight, robot.elbowRight, 1 // Right arm with controller1
+          );
+          updateArmIK(
+            controller2, robot.shoulderLeft, robot.elbowLeft, -1 // Left arm with controller2
+          );
+        } else {
+          updateRobotFromControllersRemote();
+        }
+      }
+      // 5. Mixed Reality: if your device supports it, enable AR mode (‘ARButton‘) with ‘optionalFeatures: [’dom-overlay’]‘. Make the kitchen walls transparent but keep the table solid, so the robot appears to be working on your real-world table.
+      // Add an AR button to the page with DOM overlay support
+      document.body.appendChild(ARButton.createButton(renderer, { optionalFeatures: ['dom-overlay'], domOverlay: { root: document.body } }));
+      // Make the kitchen walls transparent but keep the table solid in .js file
+      
+      // Final animation loop with teleoperation updates
+      renderer.setAnimationLoop(() => {
+        updateTeleoperation(); // Update robot pose based on the selected control mode
+        animate();
+      });
+
+    </script>
+  </body>
+</html>

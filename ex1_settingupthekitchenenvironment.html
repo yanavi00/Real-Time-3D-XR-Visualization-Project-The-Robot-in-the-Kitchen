@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Ex1 - Setting Up the Kitchen Environment</title>
+    <style>
+      body { margin: 0; overflow: hidden; }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from 'three';
+      // 1. OrbitControls import to be able to move the camera around
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+      // Global variables so all functions can access them
+      let scene, camera, renderer, controls;
+      let floorTexture, backWallTexture, leftWallTexture, counterTexture, woodTexture, pizzaTexture;
+
+      // 2. Scene, camera, renderer setup
+      function initScene() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        camera.position.set(5, 5, 10); 
+        camera.lookAt(0, 0, 0);
+
+        renderer = new THREE.WebGLRenderer();
+        renderer.shadowMap.enabled = true;
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement); 
+
+        // 3. OrbitControls setup
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; // Add damping (inertia) to the controls for smoother camera movement
+        controls.dampingFactor = 0.05;
+      }
+
+      // Directional light to create shadows and give a sense of depth
+      function initLighting() {
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 10, 5);
+        directionalLight.castShadow = true; // Enable shadows for the directional light
+        scene.add(directionalLight);
+      }
+
+      // 4. Load textures for the floor, walls and objects in the kitchen
+      function loadTextures() {
+        const textureLoader = new THREE.TextureLoader();
+
+        floorTexture = textureLoader.load('./assets/wood_floor1.jpg');
+        floorTexture.wrapS = THREE.RepeatWrapping;
+        floorTexture.wrapT = THREE.RepeatWrapping;
+        floorTexture.repeat.set(4, 4); // repeat the texture 4 times across the floor
+        
+        backWallTexture = textureLoader.load('./assets/beige_wall.jpg');
+        backWallTexture.wrapS = THREE.RepeatWrapping;
+        backWallTexture.wrapT = THREE.RepeatWrapping;
+        backWallTexture.repeat.set(5, 5); 
+
+        leftWallTexture = textureLoader.load('./assets/white_tiles.jpg');
+        leftWallTexture.wrapS = THREE.RepeatWrapping; 
+        leftWallTexture.wrapT = THREE.RepeatWrapping;
+        leftWallTexture.repeat.set(1, 1); 
+
+        counterTexture = textureLoader.load('./assets/pink_tiles.jpg');
+        counterTexture.wrapS = THREE.RepeatWrapping;  
+        counterTexture.wrapT = THREE.RepeatWrapping;
+        counterTexture.repeat.set(1, 1);
+
+        woodTexture = textureLoader.load('./assets/wood.jpg');
+        woodTexture.wrapS = THREE.RepeatWrapping;
+        woodTexture.wrapT = THREE.RepeatWrapping;
+
+        pizzaTexture = textureLoader.load('./assets/pizza.png');
+      }
+
+      // 5. Create the ground plane and walls of the room
+      function createRoom() {
+        const kitchen = new THREE.Group();
+        scene.add(kitchen);
+
+        // Ground plane
+        const groundGeo = new THREE.PlaneGeometry(8, 8);
+        const groundMat = new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 0.8 }); // roughness to reduce shininess of the floor
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2; // Rotate the plane to be horizontal
+        ground.position.y = 0; // Position the ground at y=0
+        ground.receiveShadow = true;
+        scene.add(ground); 
+        
+        // Walls of the room
+        const wallHeight = 5;
+        const roomSize = 8;
+        const wallThickness = 0.2;
+        const backwallMat = new THREE.MeshStandardMaterial({ map: backWallTexture, side: THREE.DoubleSide });
+        const leftwallMat = new THREE.MeshStandardMaterial({ map: leftWallTexture, side: THREE.DoubleSide });
+        // The back wall
+        const backWallGeo = new THREE.BoxGeometry(roomSize, wallHeight, wallThickness);
+        const backWall = new THREE.Mesh(backWallGeo, backwallMat);
+        backWall.position.set(0, wallHeight / 2, -roomSize / 2 + wallThickness / 2);
+        backWall.receiveShadow = true;
+        scene.add(backWall);
+        
+        // The left wall
+        const leftWallGeo = new THREE.BoxGeometry(wallThickness, wallHeight, roomSize);
+        const leftWall = new THREE.Mesh(leftWallGeo, leftwallMat);
+        leftWall.position.set(-roomSize / 2 + wallThickness / 2, wallHeight / 2, 0);
+        leftWall.receiveShadow = true;
+        scene.add(leftWall);
+      }
+
+      // The kitchen counter using a box geometry
+      function createObjects() {
+        const counterGeo = new THREE.BoxGeometry(5, 2, 1.5); // width, height, depth of the counter
+        const counterMat = new THREE.MeshStandardMaterial({ map: counterTexture });
+        const counter = new THREE.Mesh(counterGeo, counterMat);
+        counter.position.set(-0.5, 1, 0); // centered left // right, 1 above the ground, and x units back from the center
+        counter.castShadow = true;
+        counter.receiveShadow = true;
+        scene.add(counter);
+
+        // Adding objets on the counter - a cutting board using a cylinder geometry
+        const boardGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.03, 32); // radius top, radius bottom, height, radial segments
+        const boardMat = new THREE.MeshStandardMaterial({ map: woodTexture, roughness: 0.8});
+        const cuttingBoard = new THREE.Mesh(boardGeo, boardMat);
+        cuttingBoard.position.set(-1, 2.0015, 0);  // Position (on top of counter)
+        cuttingBoard.castShadow = true;
+        scene.add(cuttingBoard);
+
+        // A pizza using a cylinder geometry with a pizza texture
+        const pizzaMat = new THREE.MeshStandardMaterial({ map: pizzaTexture, transparent: true });
+        const pizzaGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.03, 32);
+        const pizza = new THREE.Mesh(pizzaGeo, pizzaMat);
+        pizza.position.set(-1, 2.007, 0); // Position (on top of a cutting board)
+        pizza.castShadow = true;
+        scene.add(pizza);
+      }
+
+      // 6. Animation loop
+      function animate(time) {
+        controls.update(); 
+        renderer.render(scene, camera);
+      }
+
+      // Initialize everything in order
+      initScene();
+      initLighting();
+      loadTextures();
+      createRoom();
+      createObjects();
+      renderer.setAnimationLoop(animate);
+
+    </script>
+  </body>
+</html>
+

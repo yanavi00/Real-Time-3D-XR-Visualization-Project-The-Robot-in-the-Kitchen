@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Ex2 - The Humanoid Robot</title>
+    <style>
+      body { margin: 0; overflow: hidden; }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <script type="module">
+      // Import THREE and all functions from kitchen-utils.js
+      import * as THREE from 'three';
+      import { 
+        initScene, 
+        initLighting, 
+        loadTextures, 
+        createRoom, 
+        createObjects, 
+        animate, 
+        getRenderer,
+        getScene
+      } from './js/kitchen-utils.js';
+
+      // Initialize the scene - functions from ex1
+      initScene();
+      initLighting();
+      loadTextures();
+      createRoom();
+      createObjects();
+
+      function createRobot() {
+        
+        const scene = getScene(); // Get the scene from utils
+        const robot = new THREE.Group();
+        scene.add(robot);
+        robot.scale.set(0.8, 0.8, 0.8); // Scale robot to 70% of current size
+        
+        // 1. Create the robot's torso using a sphere geometry and scale it to make it oval
+        const torso = new THREE.Mesh( new THREE.SphereGeometry(1, 32, 32), 
+        new THREE.MeshStandardMaterial({ color: 0xff8fab }));
+        torso.scale.set(1, 1.5, 0.6); // Scale x by 1, y by 1.8, and z by 0.5 to make it taller and slightly thinner
+        torso.position.set(-0.5, 2.5, -2); // centered left of the counter (x = -0.5), above the floor (y = 2.5), and slightly back (z = -2)
+        torso.castShadow = true;
+        torso.receiveShadow = true;
+        robot.add(torso);
+
+        //2. Create the robot's head using a perfect sphere (more round by increasing segments)
+        const head = new THREE.Mesh( new THREE.SphereGeometry(0.5, 64, 64), 
+        new THREE.MeshStandardMaterial({ color: 0xff8fab }));
+        head.position.set(0, 1.5, 0); // Position it above the torso (y = 1.5) and centered on the torso (x = 0, z = 0)
+        head.castShadow = true;
+        head.receiveShadow = true;
+        torso.add(head);   
+
+        // 3. Create robot's arm (shoulder, upper arm, elbow, forearm, hand)
+        function createArm(side = 1) { // side = 1 for right arm, -1 for left arm
+          const shoulder = new THREE.Group(); // shoulder joint as a group to allow rotation
+          shoulder.position.set(1.1 * side, 0.6, 0.2); // right/left side of torso at shoulder height
+          shoulder.rotation.z = 0.25 * side; // Rotate slightly 
+          shoulder.add(new THREE.AxesHelper(0.3)); // Add axes helper to visualize shoulder joint orientation
+          torso.add(shoulder);
+
+          const shoulderCap = new THREE.Mesh(new THREE.SphereGeometry(0.25, 32, 32), 
+          new THREE.MeshStandardMaterial({ color: 0xfb6f92 }));
+          // Flatten it slightly
+          shoulderCap.scale.set(1.2, 0.8, 1);
+          // Position at joint
+          shoulderCap.position.set(0, 0, 0);
+          shoulderCap.castShadow = true;
+          shoulderCap.receiveShadow = true;
+          shoulder.add(shoulderCap);
+
+          const upperArm = new THREE.Mesh( new THREE.CylinderGeometry(0.15, 0.15, 0.9, 32), 
+          new THREE.MeshStandardMaterial({ color: 0xfb6f92 }));
+          upperArm.position.y = -0.45; // shift down so top of upper arm is at shoulder (0.9/2 = 0.45)
+          upperArm.castShadow = true;
+          upperArm.receiveShadow = true;
+          shoulder.add(upperArm);
+
+          const elbow = new THREE.Group(); // elbow joint as a group to allow rotation
+          elbow.position.set(0, -0.9, 0); // At the end of the upper arm (0.9 down from shoulder)
+          elbow.add(new THREE.AxesHelper(0.3)); // Add axes helper to visualize elbow joint orientation
+          shoulder.add(elbow);
+
+          const forearm = new THREE.Mesh( new THREE.CylinderGeometry(0.12, 0.12, 0.8, 32), 
+          new THREE.MeshStandardMaterial({ color: 0xfb6f92 }));
+          forearm.position.y = -0.4; // shift down so top of forearm is at elbow (0.8/2 = 0.4)
+          forearm.castShadow = true;
+          forearm.receiveShadow = true;
+          elbow.add(forearm);
+
+          const hand = new THREE.Mesh( new THREE.SphereGeometry(0.18, 64, 64), 
+          new THREE.MeshStandardMaterial({ color: 0xfb6f92 }));
+          hand.position.set(0, -0.8, 0); // At the end of the forearm (0.8 down from elbow)
+          hand.castShadow = true;
+          hand.receiveShadow = true;
+          elbow.add(hand);
+        }
+
+        // Create both arms
+        createArm(1); // Create right arm
+        createArm(-1); // Create left arm
+
+        // 4. Create the robot's legs wheeled base
+        function createWheels(torso) {
+          const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 32);
+          const wheelMat = new THREE.MeshStandardMaterial({ color: 0xfb6f92 });
+          
+          wheelGeo.rotateZ(Math.PI / 2); // Rotate the wheel geometry to be horizontal
+          const leftWheel = new THREE.Mesh(wheelGeo, wheelMat);
+          leftWheel.position.set(-0.6, -1.2, 0); // Position under the left side of the torso
+          leftWheel.castShadow = true;
+          leftWheel.receiveShadow = true;
+          torso.add(leftWheel);
+
+          const rightWheel = new THREE.Mesh(wheelGeo, wheelMat);
+          rightWheel.position.set(0.6, -1.2, 0); // Position under the right side of the torso
+          rightWheel.castShadow = true;
+          rightWheel.receiveShadow = true;
+          torso.add(rightWheel);
+        }
+
+        // Create wheels
+        createWheels(torso);
+      }
+
+      createRobot();
+
+      // Start animation loop
+      getRenderer().setAnimationLoop(animate);
+
+    </script>
+  </body>
+</html>

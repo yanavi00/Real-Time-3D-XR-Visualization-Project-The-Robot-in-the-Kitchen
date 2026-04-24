@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Ex4 - Animation and Interaction</title>
+    <style>
+      body { margin: 0; overflow: hidden; }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <script type="module">
+      // Import THREE and all functions from kitchen-utils.js
+      import * as THREE from 'three';
+      import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.18/+esm';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      import { 
+        initScene, 
+        initLighting, 
+        setupLightingandShadows,
+        loadTextures, 
+        createRoom, 
+        createObjects, 
+        createRobot,
+        animate, 
+        setupGUIControls,
+        getRenderer,
+        getScene, 
+        getCamera
+      } from './js/kitchen-utils.js';
+
+      // Initialize the scene
+      initScene();
+      initLighting();
+      loadTextures();
+      createRoom();
+      const objects = createObjects();
+      const robot = createRobot(); 
+      const scene = getScene();
+      const renderer = getRenderer();
+      const camera = getCamera();
+      const gui = new GUI();
+
+      // 1. Create an FK animation to create a waving motion for the robot's right arm
+      const clock = new THREE.Clock(); // Clock to keep track of time for animation
+      let autoAnimate = true; // Flag to control automatic animation  
+
+      // 2. Set uo OrbitControls to allow the user to rotate around the robot and inspect the hierarchy from different angles before animation loop
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true; // Add damping (inertia) to the controls for smoother camera movement
+      controls.dampingFactor = 0.05; // Adjust the damping factor for smoother control
+      controls.autoRotate = false; // Disable auto-rotation to allow manual control
+      
+      // Start animation loop
+      renderer.setAnimationLoop(() => {
+        const time = Date.now() * 0.002; // Time variable for animation, scaled to control speed
+        if (autoAnimate) {
+          // Animation + Manual GUI control (sliders offset the animation)
+          robot.shoulderRight.rotation.x = Math.sin(time) * 1.0 + params.shoulder;
+          robot.elbowRight.rotation.x = Math.sin(time * 2.0) * 1.0 + params.elbow;
+          robot.shoulderLeft.rotation.x = -Math.sin(time) * 1.0 - params.shoulder;
+          robot.elbowLeft.rotation.x = -Math.sin(time * 2.0) * 1.0 - params.elbow;
+        } else {
+          // When animation is OFF, manual GUI controls only
+          robot.shoulderRight.rotation.x = params.shoulder;
+          robot.shoulderLeft.rotation.x = -params.shoulder;
+          robot.elbowRight.rotation.x = params.elbow;
+          robot.elbowLeft.rotation.x = -params.elbow;
+        }
+        controls.update();
+        animate();
+        });
+      
+      // 3. Set up GUI controls to toggle the animation on and off
+      const params = { autoAnimate: true, shoulder:0, elbow:0 }; // Parameter object for GUI
+      gui.add(params, 'autoAnimate').onChange(value => {
+        autoAnimate = value; // Update the autoAnimate flag when the GUI control is changed
+      });
+      // Add manual controls for the shoulder and elbow rotation using the GUI
+      const armFolder = gui.addFolder('Arm Controls');
+      armFolder.add(params, 'shoulder', -Math.PI, Math.PI).onChange(value => {
+        robot.shoulderRight.rotation.x = value; // Update right shoulder rotation
+        robot.shoulderLeft.rotation.x = -value; // Update left shoulder rotation (opposite)
+      });
+      armFolder.add(params, 'elbow', -Math.PI, Math.PI).onChange(value => {
+        robot.elbowRight.rotation.x = value; // Update right elbow rotation
+        robot.elbowLeft.rotation.x = -value; // Update left elbow rotation (opposite)
+      });
+    </script>
+  </body>
+</html>
